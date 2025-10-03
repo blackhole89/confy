@@ -69,6 +69,21 @@ struct ExprLiteral : public Expr {
     ConfyVal v;
     virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
 };
+struct ExprOp : public Expr {
+    std::function<ConfyVal (ConfyVal,ConfyVal,int)> op;
+    std::vector<Expr*> subexprs;
+    std::vector<int> subtypes;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+};
+struct ExprNot : public Expr {
+    Expr *sub;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);   
+};
+struct ExprNeg : public Expr {
+    Expr *sub;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);   
+};
+
 struct ExprEq : public Expr {
     Expr *left, *right;
     virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);

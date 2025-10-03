@@ -17,7 +17,8 @@ enum class Mask : char {
     M_INERT_LINE_IN,
     M_INERT_BLOCK_IN,
     M_INERT_BLOCK_OUT,
-    M_ACTIVE
+    M_ACTIVE,
+    M_PROTECTED
 };
 
 struct ConfyFile;
@@ -63,13 +64,108 @@ struct ConfyVar {
 #include "parser_utils.hpp"
 
 #include "ast_def.hpp"
- 
+
+ConfyVal boolVal(bool b) {
+    return ConfyVal { T_BOOL, b, b?1:0, b?1.0:0.0, b?"true":"false" };
+}
+ConfyVal intVal(int i) {
+    char buf[64];
+    sprintf(buf,"%d",i);
+    return ConfyVal { T_INT, i!=0, i, (double)i, buf };
+}
+ConfyVal floatVal(double f) {
+    char buf[512];
+    sprintf(buf,"%f",f);
+    return ConfyVal { T_FLOAT, ((int)f)!=0, (int)f, f, buf };
+}
+
+
+struct OpTier {
+    std::vector<const char*> ops;
+    std::function<ConfyVal (ConfyVal, ConfyVal, int)> ev_fun;
+};
+
+OpTier opTiers[] = {
+    { {"||"}, [] (ConfyVal v1,ConfyVal v2,int type) { return boolVal(v1.b || v2.b); } },
+    { {"&&"}, [] (ConfyVal v1,ConfyVal v2,int type) { return boolVal(v1.b && v2.b); } },
+    { {"==", "!="}, [] (ConfyVal l,ConfyVal r,int type) { 
+                                 bool res;
+                                 switch(l.t) {
+                                 case T_BOOL: res = l.b == r.b; break;
+                                 case T_INT: res = l.i == r.i; break;
+                                 case T_FLOAT: res = l.f == r.f; break;
+                                 case T_STRING: res = l.s == r.s; break;
+                                 default: res = false;
+                                 }
+                                 return boolVal(type ^ res);
+                                }
+                               },
+    { {"<=", "<", ">=", ">"}, [] (ConfyVal v1,ConfyVal v2,int type) { 
+                                 if(v1.t == T_FLOAT) {
+                                    switch(type) { case 0: return boolVal(v1.f<=v2.f);
+                                                   case 1: return boolVal(v1.f<v2.f);
+                                                   case 2: return boolVal(v1.f>=v2.f);
+                                                   case 3: return boolVal(v1.f>v2.f); }
+                                 } else {
+                                    switch(type) { case 0: return boolVal(v1.i<=v2.i);
+                                                   case 1: return boolVal(v1.i<v2.i);
+                                                   case 2: return boolVal(v1.i>=v2.i);
+                                                   case 3: return boolVal(v1.i>v2.i); }
+                                 }
+                                 return boolVal(false);
+                                } 
+                               },
+     { {"+","-"}, [] (ConfyVal v1,ConfyVal v2,int type) {
+                                 if(v1.t == T_FLOAT) return floatVal(v1.f+(type?-1.0:1.0)*v2.f);
+                                 else return intVal(v1.i+(type?-1:1)*v2.i);
+                                }
+                               }, 
+     { {"*","/","%"}, [] (ConfyVal v1,ConfyVal v2,int type) {
+                                 if(v1.t == T_FLOAT && type<2)
+                                     return type?floatVal(v1.f/v2.f):floatVal(v1.f*v2.f);
+                                 else switch(type) {
+                                     case 0: return intVal(v1.i*v2.i);
+                                     case 1: return intVal(v1.i/v2.i);
+                                     case 2: return intVal(v1.i%v2.i);
+                                 }
+                                 return intVal(0);
+                                }
+                               },
+      { { } } 
+};
+
+ConfyVal *parseValue(const char *data, const char *mask, int &pos) {
+    int d; std::string str;
+    if(d=match_string(data,mask,pos,"true")) {
+        pos+=d;
+        return new ConfyVal { T_BOOL, true, 1, 1.0f, "true" };
+    } else if(d=match_string(data,mask,pos,"false")) {
+        pos+=d;
+        return new ConfyVal { T_BOOL, false, 0, 0.0f, "false" };
+    } else if(d=try_capture_quoted(data,mask,pos,&str)) {
+        pos+=d;
+        return new ConfyVal { T_STRING, str!="", str!="", (float)(int)(str!=""), str };
+    } else { 
+        char *endptr;
+        int pos0=pos;
+        double v = strtod(data+pos, &endptr);
+        if(endptr>(data+pos)) {
+            pos+=(endptr-(data+pos));
+            return new ConfyVal { T_FLOAT, (bool)(int)v, (int)v, v, std::string(data+pos0, pos-pos0) };
+        } else {
+            return NULL;
+        }
+    }
+}
+
 #define FAIL(s,...) { fprintf(stderr, "ERROR: " s "\n" __VA_OPT__(,) __VA_ARGS__); return false; }
 struct ConfyFile {
     std::string fname;
     int size;
     char *data;
     char *mask;
+    int setup_start, setup_end;
+
     SyntaxNode *s;
 
     struct {
@@ -80,6 +176,7 @@ struct ConfyFile {
         int pos=0, d;
         while(pos<size) {
             if(d=match_string(data, mask, pos, "confy-setup")) {
+                setup_start = pos;
                 pos+=d;
 
                 pos+=eat_whitespace(data, mask, pos);
@@ -113,12 +210,15 @@ struct ConfyFile {
                     { FAIL("Unknown confy-setup key: '%s'", key.c_str()); }
                     #undef SETUP_STRING
 
-                    printf("key: %s val: '%s'\n", key.c_str(), value.c_str());
+//                    printf("key: %s val: '%s'\n", key.c_str(), value.c_str());
 
                     pos+=eat_whitespace(data, mask, pos);
                     pos+=match_string(data, mask, pos, ","); 
                 }
-                if(match_string(data, mask, pos, "}")) return true;
+                if(match_string(data, mask, pos, "}")) {
+                    setup_end = pos+1;
+                    return true;
+                } else return false;
             } else ++pos;
         }
         return false;
@@ -132,6 +232,11 @@ struct ConfyFile {
         int pos=0, pos0=0, d;
         bool is_line_comment;
         Mask st = Mask::M_ACTIVE;
+
+        // overpaint confy-setup block
+//        printf("protect %d..%d\n", setup_start, setup_end);
+        paintMask(setup_start, setup_end-setup_start, Mask::M_PROTECTED);
+
         while(pos<size) {
             switch(st) {
             case Mask::M_ACTIVE:
@@ -156,7 +261,7 @@ struct ConfyFile {
                     paintMask(pos, d, Mask::M_META_BLOCK_IN);
                     pos=pos0=pos+d;
                     st=Mask::M_META; is_line_comment=false;
-                }
+                } else ++pos;
                 break;
             case Mask::M_INERT:
                 if(is_line_comment) {
@@ -165,7 +270,7 @@ struct ConfyFile {
                         paintMask(pos0, d+pos-pos0, st);
                         pos=pos0=pos+d;
                         st=Mask::M_ACTIVE;
-                    }
+                    } else ++pos;
                 } else {
                     // currently inside inactivated block, transition back on comment close
                     if(d=match_string(data, mask, pos, setup.block_end.c_str())) {
@@ -173,7 +278,7 @@ struct ConfyFile {
                         paintMask(pos, d, Mask::M_INERT_BLOCK_OUT);
                         pos=pos0=pos+d;
                         st=Mask::M_ACTIVE;
-                    }
+                    } else ++pos;
                 }
                 break;
             case Mask::M_META:
@@ -183,7 +288,7 @@ struct ConfyFile {
                         paintMask(pos0, d+pos-pos0, st);
                         pos=pos0=pos+d;
                         st=Mask::M_ACTIVE;
-                    }
+                    } else ++pos;
                 } else {
                     // currently inside inactivated block, transition back on comment close
                     if(d=match_string(data, mask, pos, setup.meta_block_end.c_str())) {
@@ -191,19 +296,15 @@ struct ConfyFile {
                         paintMask(pos, d, Mask::M_META_BLOCK_OUT);
                         pos=pos0=pos+d;
                         st=Mask::M_ACTIVE;
-                    }
+                    } else ++pos;
                 }
                 break;
             }
-            ++pos;
         }
         // paint remainder of block
         paintMask(pos0, pos-pos0, st);
-        return true;
-    }
 
-    SyntaxNode *parseExpr(int &pos) {
-        return NULL;
+        return true;
     }
 
     #define STR_OR_FAIL(s) \
@@ -216,38 +317,67 @@ struct ConfyFile {
             if(!(d=match_string(data,mask,pos,s))) THROW(err) \
             pos+=d; 
 
+    Expr *parseExpr(int &pos, int tier);
+    Expr *parseExprSingleton(int &pos) {
+        int d;
+        std::string vn;
+        if(d=match_string(data,mask,pos,"!")) {
+            pos+=d;
+            pos+=eat_whitespace(data,mask,pos);
+            Expr *sub = parseExprSingleton(pos);
+            ExprNot *e = new ExprNot();
+            e->sub = sub;
+            return e;
+        } else if(d=match_string(data,mask,pos,"-")) {
+            pos+=d;
+            pos+=eat_whitespace(data,mask,pos);
+            Expr *sub = parseExprSingleton(pos);
+            ExprNeg *e = new ExprNeg();
+            e->sub = sub;
+            return e;
+        } else if(d=match_string(data,mask,pos,"(")) {
+            pos+=d;
+            pos+=eat_whitespace(data,mask,pos);
+            Expr *sub = parseExpr(pos,0);
+            STR_OR_THROW(")", "Expected ')'");
+            return sub;
+        } else if(d=tryVarName(pos, vn)) {
+            pos+=d;
+            ExprVar *sub = new ExprVar();
+            sub->name = vn;
+            return sub;
+        } else if(ConfyVal *v=parseValue(data,mask,pos)) {
+            ExprLiteral *sub = new ExprLiteral();
+            sub->v = *v;
+            return sub;
+        } else THROW("Expected '!', '-', parenthesized expression, variable name or literal");
+    }
+
+
+    SyntaxNode *parseExpr(int &pos) {
+        int pos0=pos;
+
+        pos += eat_whitespace(data,mask,pos);
+        Expr *sub = parseExpr(pos,0);
+        ExprNode *n = new ExprNode();
+        n->source = std::string(data+pos0, pos-pos0);
+        n->root = sub;
+
+        return n;
+    }
 
     // '$' <identifier>
-    std::string parseVarName(int &pos) {
+    int tryVarName(int pos, std::string &n) {
+        int pos0=pos;
         int d;
-        STR_OR_FAIL("$");
-        return capture_ident(data,mask,&pos);
+        if(!(d=match_string(data,mask,pos,"$"))) return 0;
+        pos+=d;
+        n=capture_ident(data,mask,&pos);
+        if(!n.length()) THROW("Expected nonempty variable name after '$'");
+        return pos-pos0;
     }
 
-    ConfyVal *parseValue(int &pos) {
-        int d; std::string str;
-        if(d=match_string(data,mask,pos,"true")) {
-            pos+=d;
-            return new ConfyVal { T_BOOL, true, 1, 1.0f, "true" };
-        } else if(d=match_string(data,mask,pos,"false")) {
-            pos+=d;
-            return new ConfyVal { T_BOOL, false, 0, 0.0f, "false" };
-        } else if(d=try_capture_quoted(data,mask,pos,&str)) {
-            pos+=d;
-            return new ConfyVal { T_STRING, str!="", str!="", (float)(int)(str!=""), str };
-        } else { 
-            char *endptr;
-            int pos0=pos;
-            double v = strtod(data+pos, &endptr);
-            if(endptr>(data+pos)) {
-                pos+=(endptr-(data+pos));
-                return new ConfyVal { T_FLOAT, (bool)(int)v, (int)v, v, std::string(data+pos0, pos-pos0) };
-            } else {
-                return NULL;
-            }
-        }
 
-    }
 
     // <type> <varname> ["<friendly name>"] '=' <value> ';'
     SyntaxNode *parseVarDef(int &pos) {
@@ -269,8 +399,9 @@ struct ConfyFile {
         pos+=d;
         pos+=eat_whitespace(data,mask,pos);
 
-        ret->name = parseVarName(pos);
-        if(!ret->name.length()) return NULL; //TODO throw appropriate error
+        ret->name = "";
+        pos+=tryVarName(pos,ret->name);
+        if(!ret->name.length()) THROW("Expected variable name after type name");
 
         pos+=eat_whitespace(data,mask,pos);
 
@@ -285,7 +416,7 @@ struct ConfyFile {
         
         ret->pre = std::string(data+pos0, pos-pos0);
 
-        ConfyVal *va = parseValue(pos);
+        ConfyVal *va = parseValue(data,mask,pos);
         if(!va) return NULL;
 
         pos0=pos;
@@ -310,11 +441,11 @@ struct ConfyFile {
 
             pos+=eat_whitespace(data,mask,pos);
 
-            STR_OR_FAIL("(");
+            STR_OR_THROW("(", "'if' must be followed by '('");
 
             cond=parseExpr(pos);
 
-            STR_OR_FAIL(")");
+            STR_OR_THROW(")", "'if' condition must be closed by ')'");
 
             pos+=eat_whitespace(data,mask,pos);
 
@@ -331,15 +462,18 @@ struct ConfyFile {
             pos+=eat_whitespace(data,mask,pos);
 
             if(d=match_string(data,mask,pos,"else")) {
+                pos+=d;
                 IfThenElse *s = new IfThenElse();
                 s->pre = std::string(data+pos0, pos1-pos0);
+                s->cond = cond;
+                s->sub1 = body;
                 pos+=eat_whitespace(data,mask,pos);
                 SyntaxNode *alt;
                 if(!(alt=parseIf(pos))) {
-                    STR_OR_FAIL("{");
+                    STR_OR_THROW("{", "Expected '{' or 'if' after 'else'");
                     s->inter = std::string(data+pos2, pos-pos2);
                     alt=parseSeq(pos);
-                    STR_OR_FAIL("}");
+                    STR_OR_THROW("}", "Expected '}' after else-block");
                     s->post = "}";
                 } else {
                     s->post = "";
@@ -386,6 +520,7 @@ struct ConfyFile {
             } else if(   (d=match_while(data,mask,pos,is_mask_eq((char)Mask::M_META_LINE_IN)))
                       || (d=match_while(data,mask,pos,is_mask_eq((char)Mask::M_META_BLOCK_IN)))
                       || (d=match_while(data,mask,pos,is_mask_eq((char)Mask::M_META_BLOCK_OUT)))
+                      || (d=match_while(data,mask,pos,is_mask_eq((char)Mask::M_PROTECTED)))
                       || (d=eat_whitespace(data,mask,pos))
                      ) {
                 SourceBlock *s = new SourceBlock();
@@ -411,12 +546,51 @@ struct ConfyFile {
         try {
             s=parseSeq(pos);
         } catch(std::string err) {
-            fprintf(stderr, "PARSE ERROR: %s\n", err.c_str());
+            fprintf(stderr, "PARSE ERROR at '%s' byte %d: %s\n", fname.c_str(), pos, err.c_str());
+            fprintf(stderr, "TAIL: %.64s\n", data+pos);
             return false;
         }
         return (s!=NULL);
     }
 };
+
+Expr *ConfyFile::parseExpr(int &pos, int tier) {
+    int d;
+
+    // bottom of precedence list
+    if(!opTiers[tier].ops.size()) {
+        return parseExprSingleton(pos);
+    }
+
+    ExprOp *ret = new ExprOp();
+
+    Expr *sub = parseExpr(pos, tier+1),*sub1;
+
+    ret->op = opTiers[tier].ev_fun;
+    ret->subexprs.push_back(sub);
+    ret->subtypes.push_back(0);
+
+    while(1) {
+        pos += eat_whitespace(data,mask,pos);
+        int index=0;
+        for(;index<opTiers[tier].ops.size();++index) {
+            if(d=match_string(data,mask,pos,opTiers[tier].ops[index])) break; 
+        }
+        if(index==opTiers[tier].ops.size()) break; // can't extend this expr tier
+        pos += d;
+
+        pos += eat_whitespace(data,mask,pos);
+        sub1 = parseExpr(pos, tier+1);
+        if(!sub1) THROW("Expected expression after '%s'", opTiers[tier].ops[index]);
+        ret->subexprs.push_back(sub1);
+        ret->subtypes.push_back(index);
+    }
+    if(ret->subexprs.size()==1) {
+        delete ret;
+        return sub;
+    }
+    return ret;
+}
 
 
 struct ConfyState {
@@ -435,6 +609,7 @@ struct ConfyState {
         ConfyFile &f = files.back();
 
         f.size = size;
+        f.fname = fname;
 
         /* read file contents */
         FILE *fl = fopen(fname.c_str(),"rb");
@@ -478,11 +653,32 @@ struct ConfyState {
             files.pop_back();
             return false;
         }
-        printf("== Debug render: ==\n%s", f.s->Render(&f,this).c_str());
+        f.s->Execute(&f,this,true);
+        //printf("== Debug render: ==\n%s", f.s->Render(&f,this).c_str());
 
         return true;
     }
 
+    bool SaveFile(ConfyFile *f) 
+    {
+        free(f->data);
+        
+        std::string data = f->s->Render(f,this);
+        f->data = (char*)malloc(data.length()+1);
+        memcpy(f->data, data.c_str(), data.length()+1);
+
+        FILE *fl = fopen(f->fname.c_str(),"wb");
+        if(!fl) {
+            fprintf(stderr,"ERROR: Could not open file '%s' for writing.\n",f->fname.c_str());
+            return false;
+        }
+        if(!fwrite(f->data,data.length(),1,fl)) {
+            fprintf(stderr,"ERROR: Failed to write to '%s'.\n",f->fname.c_str());
+            return false;
+        }
+        fclose(fl);
+        return true;
+    }
 };
 
 #include "ast_impl.hpp"
@@ -491,6 +687,43 @@ int main(int argc, char* argv[])
 {
     ConfyState st;
     if(argc>1) st.LoadAndParseFile(argv[1]);
+    if(argc>3) {
+        if(!strcmp(argv[2], "get")) {
+            if(st.vars.count(argv[3])) {
+                printf("%s\n",st.vars[argv[3]].val.Render().c_str());
+                return 0;
+            } else {
+                fprintf(stderr,"Variable '%s' not found\n", argv[3]);
+                return -1;
+            }
+        } else if(!strcmp(argv[2], "set") && argc>4) {
+            if(st.vars.count(argv[3])) {
+                // prepare mask to parse value from argv[4]
+                int len = strlen(argv[3])+1, pos=0;
+                char *mask = (char*)malloc(len);
+                memset(mask,0,len);
+                ConfyVal *newv = parseValue(argv[4], mask, pos);
+                if(!newv) {
+                    fprintf(stderr,"Couldn't parse value '%s'!\n",argv[4]);
+                    return -2;
+                }
+
+                // replace value in state
+                ConfyType oldt = st.vars[argv[3]].val.t;
+                st.vars[argv[3]].val = *newv;
+                st.vars[argv[3]].val.t = oldt; // coerce to definitional type
+
+                // reevaluate script and save
+                st.vars[argv[3]].fl->s->Execute(st.vars[argv[3]].fl, &st, true);
+                st.SaveFile(st.vars[argv[3]].fl);
+                printf("== Debug render: ==\n%s", st.vars[argv[3]].fl->s->Render(st.vars[argv[3]].fl, &st).c_str());
+                return 0;
+            } else {
+                fprintf(stderr,"Variable '%s' not found\n", argv[3]);
+                return -1;
+            }
+        }
+    }
     return 0;
 }
 

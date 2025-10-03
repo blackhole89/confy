@@ -26,23 +26,47 @@ ConfyVal VarDef::Execute(ConfyFile *f, ConfyState *st, bool enable) {
     if(!st->vars.count(name)) {
         st->vars[name] = v;
         st->vars[name].fl = f;
+    } else {
+        // backprop from state
+        v = st->vars[name];
     }
     st->vars[name].hidden = !enable;
     return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
 }
 
+std::string lineify(std::string input, std::string comment)
+{
+    int pos=0, pos0=0;
+    std::string out;
+    while( (pos=input.find('\n', pos0)) != std::string::npos) {
+        out += comment;
+        out += std::string(input, pos0, pos-pos0+1);
+        pos0 = pos+1; 
+    }
+    if(input[pos0]) {
+        out += comment;
+        out += std::string(input, pos0);
+        out += "\n";
+    }
+    return out;
+}
+
 std::string SourceBlock::Render(ConfyFile *f, ConfyState *st) {
     std::string ret;
-    if(bType == B_INERT_LINE) ret += f->setup.line;
-    if(bType == B_INERT_BLOCK) ret += f->setup.block_start;
-    ret += contents;
-    if(bType == B_INERT_BLOCK) ret += f->setup.block_end;
+    if(bType == B_INERT_LINE) {
+        ret = lineify(contents, f->setup.line);
+    } else if(bType == B_INERT_BLOCK) {
+        ret += f->setup.block_start;
+        ret += contents;
+        ret += f->setup.block_end;
+    } else ret = contents;
     return ret;
 }
 
 ConfyVal SourceBlock::Execute(ConfyFile *f, ConfyState *st, bool enable) {
     if(enable && bType!=B_META_CHAFF) bType=B_ACTIVE;
-    else if(bType!=B_META_CHAFF) bType=B_INERT_BLOCK;
+    else if(bType!=B_META_CHAFF && f->setup.block_start.length()) bType=B_INERT_BLOCK;
+    else if(bType!=B_META_CHAFF) bType=B_INERT_LINE;
 
     return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
 }
@@ -101,6 +125,22 @@ ConfyVal ExprVar::Eval(ConfyFile *f, ConfyState *st) {
 ConfyVal ExprLiteral::Eval(ConfyFile *f, ConfyState *st) {
     return v;
 }
+ConfyVal ExprOp::Eval(ConfyFile *f, ConfyState *st) {
+    ConfyVal vacc = subexprs[0]->Eval(f,st);
+    for(int i=1;i<subexprs.size();++i) {
+        vacc = op(vacc, subexprs[i]->Eval(f,st), subtypes[i]);
+    }
+    return vacc;
+}
+ConfyVal ExprNot::Eval(ConfyFile *f, ConfyState *st) {
+    ConfyVal vsub = sub->Eval(f,st);
+    return boolVal(!vsub.b);
+}
+ConfyVal ExprNeg::Eval(ConfyFile *f, ConfyState *st) {
+    ConfyVal vsub = sub->Eval(f,st);
+    return vsub.t==T_FLOAT?floatVal(-vsub.f):intVal(-vsub.i);
+}
+
 // check for equality, coercing to type of left
 ConfyVal ExprEq::Eval(ConfyFile *f, ConfyState *st) {
     ConfyVal l = left->Eval(f,st);
