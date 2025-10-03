@@ -33,7 +33,7 @@ struct ConfyVal {
     ConfyType t;
     bool b;
     int i;
-    float f;
+    double f;
     std::string s;
 
     std::string Render() {
@@ -217,7 +217,7 @@ struct ConfyFile {
             pos+=d; 
 
 
-
+    // '$' <identifier>
     std::string parseVarName(int &pos) {
         int d;
         STR_OR_FAIL("$");
@@ -249,6 +249,7 @@ struct ConfyFile {
 
     }
 
+    // <type> <varname> ["<friendly name>"] '=' <value> ';'
     SyntaxNode *parseVarDef(int &pos) {
         int pos0=pos, d;
         VarDef *ret;
@@ -281,18 +282,25 @@ struct ConfyFile {
 
         STR_OR_FAIL("=");
         pos+=eat_whitespace(data,mask,pos);
+        
+        ret->pre = std::string(data+pos0, pos-pos0);
 
         ConfyVal *va = parseValue(pos);
         if(!va) return NULL;
+
+        pos0=pos;
 
         ret->v.val.b = va->b; ret->v.val.f = va->f; ret->v.val.i = va->i; ret->v.val.s = va->s;
         delete va;
 
         STR_OR_FAIL(";");
 
+        ret->post = std::string(data+pos0, pos-pos0);
+
         return ret;
     }
 
+    // 'if' '(' <expression> ')' '{' <sequence> '}' [ 'else'  ( <if> | ( '{' <sequence> '}' ) ) ] 
     SyntaxNode *parseIf(int &pos) {
         int pos0=pos, pos1, pos2, d;
         if(d=match_string(data,mask,pos,"if")) {
@@ -349,6 +357,7 @@ struct ConfyFile {
         } else return NULL;
     }
 
+    // sequence of basic blocks
     Seq *parseSeq(int &pos) {
         Seq *ret = new Seq;
         int d;

@@ -14,6 +14,7 @@ struct Seq : public SyntaxNode {
     virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
 };
 
+
 struct SourceBlock : public SyntaxNode {
     enum {
         B_ACTIVE,
@@ -51,6 +52,31 @@ struct IfThenElse : public SyntaxNode {
     std::string pre, inter, post;
 
     SyntaxNode *cond, *sub1, *sub2;
+
+    virtual std::string Render(ConfyFile *f, ConfyState *st);
+    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+};
+
+
+struct Expr {
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st) = 0;
+};
+struct ExprVar : public Expr {
+    std::string name;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+};
+struct ExprLiteral : public Expr {
+    ConfyVal v;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+};
+struct ExprEq : public Expr {
+    Expr *left, *right;
+    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+};
+
+struct ExprNode : public SyntaxNode {
+    Expr *root;
+    std::string source;
 
     virtual std::string Render(ConfyFile *f, ConfyState *st);
     virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
