@@ -596,7 +596,8 @@ Expr *ConfyFile::parseExpr(int &pos, int tier) {
 struct ConfyState {
     std::vector<ConfyFile> files;
 
-    std::map<std::string, ConfyVar> vars; 
+    std::map<std::string, ConfyVar> vars;
+    std::vector<std::string> varNames; 
 
     bool LoadAndParseFile(std::string fname) {
         auto size = std::filesystem::file_size(fname);
@@ -683,6 +684,8 @@ struct ConfyState {
 
 #include "ast_impl.hpp"
 
+#include "ui.hpp"
+
 int main(int argc, char* argv[])
 {
     ConfyState st;
@@ -723,6 +726,9 @@ int main(int argc, char* argv[])
                 return -1;
             }
         }
+    } else if(argc==2) {
+        // enter interactive mode
+        interact(st);
     }
     return 0;
 }

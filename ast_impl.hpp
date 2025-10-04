@@ -26,6 +26,7 @@ ConfyVal VarDef::Execute(ConfyFile *f, ConfyState *st, bool enable) {
     if(!st->vars.count(name)) {
         st->vars[name] = v;
         st->vars[name].fl = f;
+        st->varNames.push_back(name);
     } else {
         // backprop from state
         v = st->vars[name];
