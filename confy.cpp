@@ -378,11 +378,51 @@ struct ConfyFile {
     }
 
 
+    // <varname> '=' <expr> ';'
+    SyntaxNode *parseVarAssign(int &pos) {
+        int pos0=pos, d;
+        VarAssign *ret;
 
-    // <type> <varname> ["<friendly name>"] '=' <value> ';'
+        std::string varname;
+
+        pos+=tryVarName(pos, varname);
+        if(!varname.length()) return NULL;
+
+        ret = new VarAssign();
+        ret->varname = varname;
+
+        pos+=eat_whitespace(data,mask,pos);
+
+        STR_OR_THROW("=", "Expected '=' after variable name");
+
+        pos+=eat_whitespace(data,mask,pos);
+        
+        ret->expr = parseExpr(pos);
+
+        if(!ret->expr) THROW("Expected expression after '='");
+
+        pos+=eat_whitespace(data,mask,pos);
+
+        STR_OR_THROW(";", "Expected ';' after assignment");
+
+        ret->source = std::string(data+pos0, pos-pos0);
+
+        return ret;
+    }
+
+    // ['hidden'] <type> <varname> ["<friendly name>"] '=' <value> ';'
     SyntaxNode *parseVarDef(int &pos) {
         int pos0=pos, d;
         VarDef *ret;
+
+        bool hidden=false;
+
+        if(d=match_string(data,mask,pos,"hidden")) {
+            hidden=true;
+            pos+=d;
+            pos+=eat_whitespace(data,mask,pos);
+        }
+
         if(d=match_string(data,mask,pos,"bool")) {
             ret = new VarDef();
             ret->v.val.t = T_BOOL;
@@ -398,6 +438,8 @@ struct ConfyFile {
         } else return NULL;
         pos+=d;
         pos+=eat_whitespace(data,mask,pos);
+
+        ret->hidden = hidden;
 
         ret->name = "";
         pos+=tryVarName(pos,ret->name);
@@ -491,6 +533,50 @@ struct ConfyFile {
         } else return NULL;
     }
 
+    // 'if' '(' <expression> ')' '{' <sequence> '}' [ 'else'  ( <if> | ( '{' <sequence> '}' ) ) ] 
+    SyntaxNode *parseTemplate(int &pos) {
+        int pos0=pos, pos1, pos2, d;
+        if(d=match_string(data,mask,pos,"template")) {
+            SyntaxNode *pattern, *body;
+
+            pos+=d;
+
+            pos+=eat_whitespace(data,mask,pos);
+
+            STR_OR_THROW("{", "'template' must be followed by '{'");
+
+            pos1=pos;
+
+            pattern=parseSeq(pos);
+
+            pos2=pos;
+
+            STR_OR_THROW("}", "'template' block must terminate in '}'");
+
+            pos+=eat_whitespace(data,mask,pos);
+
+            STR_OR_THROW("into", "'template' block must be followed by 'into'");
+
+            Template *s = new Template();
+            s->pre = std::string(data+pos0, pos1-pos0);
+            s->temp = pattern;
+            
+            pos+=eat_whitespace(data,mask,pos);
+            
+            SyntaxNode *alt;
+            
+            STR_OR_THROW("{", "Expected '{' after 'into'");
+            
+            s->inter = std::string(data+pos2, pos-pos2);
+            alt=parseSeq(pos); // only checked for syntactic coherence
+            
+            STR_OR_THROW("}", "Expected '}' after into-block");
+            s->post = "}";
+            s->out = ""; // no need to prerender
+            return s;
+        } else return NULL;
+    }
+
     // sequence of basic blocks
     Seq *parseSeq(int &pos) {
         Seq *ret = new Seq;
@@ -532,7 +618,11 @@ struct ConfyFile {
                 break;
             } else if(n=parseIf(pos)) {
                 ret->children.push_back(n); 
+            } else if(n=parseTemplate(pos)) {
+                ret->children.push_back(n);
             } else if(n=parseVarDef(pos)) {
+                ret->children.push_back(n);
+            } else if(n=parseVarAssign(pos)) {
                 ret->children.push_back(n);
             } else {
                 THROW("Unexpected '%s' in mode '%d'", data+pos, mask[pos]);

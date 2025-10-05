@@ -26,12 +26,13 @@ ConfyVal VarDef::Execute(ConfyFile *f, ConfyState *st, bool enable) {
     if(!st->vars.count(name)) {
         st->vars[name] = v;
         st->vars[name].fl = f;
+        st->vars[name].hidden = hidden;
         st->varNames.push_back(name);
     } else {
         // backprop from state
         v = st->vars[name];
     }
-    st->vars[name].hidden = !enable;
+    st->vars[name].hidden = hidden || !enable;
     return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
 }
 
@@ -65,9 +66,12 @@ std::string SourceBlock::Render(ConfyFile *f, ConfyState *st) {
 }
 
 ConfyVal SourceBlock::Execute(ConfyFile *f, ConfyState *st, bool enable) {
-    if(enable && bType!=B_META_CHAFF) bType=B_ACTIVE;
-    else if(bType!=B_META_CHAFF && f->setup.block_start.length()) bType=B_INERT_BLOCK;
-    else if(bType!=B_META_CHAFF) bType=B_INERT_LINE;
+    if(bType == B_META_CHAFF) return { T_BOOL, true, 1, 1.0, "true" };
+
+    if(enable) bType=B_ACTIVE;
+    else if(f->setup.line.length() && contents.find('\n')==(contents.length()-1)) bType=B_INERT_LINE;
+    else if(f->setup.block_start.length()) bType=B_INERT_BLOCK;
+    else bType=B_INERT_LINE;
 
     return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
 }
@@ -110,6 +114,52 @@ ConfyVal IfThenElse::Execute(ConfyFile *f, ConfyState *st, bool enable) {
     }
     return v; 
 }
+
+std::string Template::Render(ConfyFile *f, ConfyState *st) {
+    std::string ret;
+    ret += pre;
+    ret += temp->Render(f,st);
+    ret += inter;
+    ret += out;
+    ret += post;
+    return ret;
+}
+
+ConfyVal Template::Execute(ConfyFile *f, ConfyState *st, bool enable) {
+    ConfyVal v { T_BOOL, false, 0, 0.0, "false" };
+    if(!enable) {  }
+    else {
+        temp->Execute(f,st,true);
+        out = temp->Render(f,st);
+        std::string result;
+        /* substitute variable names */
+        int pos=0,pos0=0;
+        while(pos<out.length()) {
+            if(out[pos]=='\\') {
+                result.append(out,pos0,pos-pos0); // emit accumulated interval
+                ++pos; // skip next character
+                pos0=pos;
+            } else if(out[pos]=='$') {
+                result.append(out,pos0,pos-pos0); // emit accumulated interval
+                ++pos; // advance past $
+                std::string varname = capture_ident(out.c_str(), NULL, &pos);
+                if(out[pos]=='~') ++pos; // advance past ~ for $varname~text
+                pos0=pos;
+                // append string value of this variable
+                if(!st->vars.count(varname))
+                    result += "<unknown variable $"+varname+">";
+                else
+                    result += st->vars[varname].val.s;
+            } else ++pos;
+        }
+        result.append(out,pos0); // emit tail
+        out = result;
+
+        temp->Execute(f,st,false);
+    }
+    return v; 
+}
+
 
 std::string ExprNode::Render(ConfyFile *f, ConfyState *st) {
     return source;
@@ -156,4 +206,21 @@ ConfyVal ExprEq::Eval(ConfyFile *f, ConfyState *st) {
     }
     return ConfyVal { T_BOOL, res, res?1:0, res?1.0:0.0, res?"true":"false" };
 }
+
+std::string VarAssign::Render(ConfyFile *f, ConfyState *st) {
+    return source;
+}
+
+ConfyVal VarAssign::Execute(ConfyFile *f, ConfyState *st, bool enable) {
+    if(enable) {
+        if(st->vars.count(varname)) {
+            st->vars[varname].val = expr->Execute(f,st,enable);
+            return st->vars[varname].val;
+        } else {
+            // TODO: throw error?
+        }
+    }
+    return ConfyVal { T_BOOL, false, 0, 0.0, "false" };
+}
+
 

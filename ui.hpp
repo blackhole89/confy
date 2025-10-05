@@ -112,7 +112,7 @@ void interact(ConfyState &st)
                 if(v.val.b)
                     tb_printf(3, i+1, fg, bg, "X");
             } else { //if(v.val.t == T_INT) {
-                if(!editing) {
+                if(!editing || !selected) {
                     tb_printf(5 + maxw + 3, i+1, TB_DEFAULT, 0, "%s", v.val.s.c_str());
                 } else {
                     //tb_printf(5 + maxw + 3, i+1, TB_DEFAULT, 0, "%100s", " ");
