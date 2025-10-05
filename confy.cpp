@@ -779,7 +779,10 @@ struct ConfyState {
 int main(int argc, char* argv[])
 {
     ConfyState st;
-    if(argc>1) st.LoadAndParseFile(argv[1]);
+    if(argc>1) {
+        if(!st.LoadAndParseFile(argv[1]))
+            return -3;
+    }
     if(argc>3) {
         if(!strcmp(argv[2], "get")) {
             if(st.vars.count(argv[3])) {
