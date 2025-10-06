@@ -10,18 +10,24 @@ As long as the format supports some form of block or line comments, the code tha
 
 **Warning:** confy is currently a work in progress. No part of it is guaranteed to be stable, forward- or backward-compatible. Use at your own risk.
 
-### Simple examples
+### Simple example
 
 ```latex
 \section{LaTeX example}
 
-The confy-setup block tells confy how meta-instructions will be embedded in this file. Confy supports line and block comments, and you should specify at least one of the two for each of inert text and metacode. 
+The confy-setup block tells confy how meta-instructions will be embedded in 
+this file. Confy supports line and block comments, and you should specify at
+least one of the two for each of inert text and metacode. 
 
-LaTeX only supports line comments. In general, the sensible approach is to take the current file's language's comment syntax, and suffix it with some unique character sequence to avoid accidental clashes with any existing comments that should not have any meaning to confy.
+LaTeX only supports line comments. In general, the sensible approach is to
+take the current file's language's comment syntax, and suffix it with some
+unique character sequence to avoid accidental clashes with any existing
+comments that should not have any meaning to confy.
 
 % confy-setup { line: "%-", meta_line: "%!" }
 
-We can now define some variables. The quoted text is optional, and allows you to display more memorable descriptions in interactive mode.
+We can now define some variables. The quoted text is optional, and allows
+ you to display more memorable descriptions in interactive mode.
 
 %! bool $b1 "First boolean" = true;
 %! bool $b2 "Second boolean" = true;
@@ -33,7 +39,9 @@ Yes!
 %-No!
 %! }
 
-If you now were to run confy and set one of the two booleans to false, confy would edit this file to comment out the line saying "Yes!", and uncomment the line saying "No!".
+If you now were to run confy and set one of the two booleans to false, 
+confy would change this file to comment out the line saying `Yes!', and
+uncomment the line saying `No!'.
 
 For more advanced usage, you can also use \textit{templating}:
 
