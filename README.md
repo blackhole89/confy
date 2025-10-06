@@ -15,7 +15,7 @@ As long as the format supports some form of block or line comments, the code tha
 ```latex
 \section{LaTeX example}
 
-The confy-setup block tells confy how meta-instructions will be embedded in 
+The confy setup block tells confy how meta-instructions will be embedded in 
 this file. Confy supports line and block comments, and you should specify at
 least one of the two for each of inert text and metacode. 
 
@@ -55,6 +55,8 @@ The integer is 1337.
 This text will be updated to reflect the chosen value of $i1.
 ```
 
+<a href="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a" target="_blank"><img src="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a.svg?a" /></a>
+
 ### Syntax overview
 
 For confy to operate on a file, it must contain a `confy-setup` block.
@@ -66,23 +68,23 @@ where valid keys are `line`, `block_start`, `block_end`, `meta_line`, `meta_bloc
 
 Valid constructs that can occur in meta segments are:
 
-* `[hidden] <type> $<varname> ["Friendly name"] = <value> ;` 
+* `[hidden] <type> $<varname> ["Friendly name"] = <value> ;`  
 This defines a new confy variable, optionally with a friendly name for the TUI.
 The initial `<value>` is mandatory and must be a basic value, as this is where confy will save the new value if it is modified.
  If the variable is marked `hidden`, it will not be displayed in the TUI.
 
-* `$<varname> = <expression> ;`
+* `$<varname> = <expression> ;`  
 This will evaluate `<expression>` and assign the result to the variable, if it has already been defined.
 
-* `include("relative-path");`
+* `include("relative-path");`  
 Includes a file identified by its path relative to the current file. Variables defined in the included file become readable and writable in the current file and namespace.
 
-* `if ( <expression> ) { <closed-form> } `
-`if ( <expression> ) { <closed-form> } else [<if-statement> | { <closed-form> }`
+* `if ( <expression> ) { <closed-form> } `  
+`if ( <expression> ) { <closed-form> } else [<if-statement> | { <closed-form> }`  
 Evaluates the expression and activates the `<closed-form>` if and only if it evaluates to `true` (resp. a nonzero number, or a nonempty string). This strips comments from all inert blocks and lines in it. Inactivates it if the expression evaluates to `false` (turning all non-commented parts of it into line or block inert segments). If an `else` branch if present, the opposite operation is performed on it.
 
-* `template { <pattern> } into { }`
-
+* `template { <pattern> } into { }`  
+Pattern should consist of inert blocks. Any instance of `$varname` in it will be replaced with a string representing the contents of that variable. Avoid substitution by escaping with `\\`. Any `~` immediately after a variable name will be deleted to allow for gapless substitution, so `\$3+$length~cm` may evaluate to `$3+15cm`.
 
 
 ## Planned features
