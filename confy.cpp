@@ -55,7 +55,7 @@ struct ConfyVal {
 };
 
 struct ConfyVar {
-    ConfyFile *fl;
+    int fl;
     std::string display;
     ConfyVal val;
     bool hidden;
@@ -161,6 +161,7 @@ ConfyVal *parseValue(const char *data, const char *mask, int &pos) {
 #define FAIL(s,...) { fprintf(stderr, "ERROR: " s "\n" __VA_OPT__(,) __VA_ARGS__); return false; }
 struct ConfyFile {
     std::string fname;
+    std::string fpath;
     int size;
     char *data;
     char *mask;
@@ -377,6 +378,40 @@ struct ConfyFile {
         return pos-pos0;
     }
 
+    // 'include' '(' "<filename>" ')' ';'
+    SyntaxNode *parseInclude(int &pos) {
+        int pos0=pos, d;
+        Include *ret;
+
+        if(!(d=match_string(data,mask,pos,"include"))) return NULL;
+        pos+=d;
+
+        ret = new Include();
+        
+        pos+=eat_whitespace(data,mask,pos);
+        
+        STR_OR_THROW("(", "Expected '(' after 'include'");
+
+        pos+=eat_whitespace(data,mask,pos);
+
+        std::string _fname;
+        if(!(d=try_capture_quoted(data,mask,pos,&_fname)))
+            THROW("Expected quoted filename in 'include'");
+        pos+=d;
+
+        pos+=eat_whitespace(data,mask,pos);
+        
+        STR_OR_THROW(")", "Expected ')' after filename");
+
+        pos+=eat_whitespace(data,mask,pos);
+
+        STR_OR_THROW(";", "Expected ')' after filename");
+
+        ret->fname=_fname;
+        ret->source = std::string(data+pos0, pos-pos0);
+
+        return ret;
+    }
 
     // <varname> '=' <expr> ';'
     SyntaxNode *parseVarAssign(int &pos) {
@@ -623,6 +658,8 @@ struct ConfyFile {
             } else if(n=parseVarDef(pos)) {
                 ret->children.push_back(n);
             } else if(n=parseVarAssign(pos)) {
+                ret->children.push_back(n); 
+            } else if(n=parseInclude(pos)) {
                 ret->children.push_back(n);
             } else {
                 THROW("Unexpected '%s' in mode '%d'", data+pos, mask[pos]);
@@ -690,6 +727,11 @@ struct ConfyState {
     std::vector<std::string> varNames; 
 
     bool LoadAndParseFile(std::string fname) {
+        for(auto &f : files) {
+            // do not reload files already loaded
+            if(f.fname == fname) return true;
+        }
+
         auto size = std::filesystem::file_size(fname);
         if(size<=0) {
             fprintf(stderr,"ERROR: File '%s' not found.\n",fname.c_str());
@@ -701,6 +743,8 @@ struct ConfyState {
 
         f.size = size;
         f.fname = fname;
+        f.fpath = std::filesystem::path(fname).parent_path();
+
 
         /* read file contents */
         FILE *fl = fopen(fname.c_str(),"rb");
@@ -744,27 +788,27 @@ struct ConfyState {
             files.pop_back();
             return false;
         }
-        f.s->Execute(&f,this,true);
+        f.s->Execute(files.size()-1,this,true);
         //printf("== Debug render: ==\n%s", f.s->Render(&f,this).c_str());
 
         return true;
     }
 
-    bool SaveFile(ConfyFile *f) 
+    bool SaveFile(int fid) 
     {
-        free(f->data);
+        free(files[fid].data);
         
-        std::string data = f->s->Render(f,this);
-        f->data = (char*)malloc(data.length()+1);
-        memcpy(f->data, data.c_str(), data.length()+1);
+        std::string data = files[fid].s->Render(fid,this);
+        files[fid].data = (char*)malloc(data.length()+1);
+        memcpy(files[fid].data, data.c_str(), data.length()+1);
 
-        FILE *fl = fopen(f->fname.c_str(),"wb");
+        FILE *fl = fopen(files[fid].fname.c_str(),"wb");
         if(!fl) {
-            fprintf(stderr,"ERROR: Could not open file '%s' for writing.\n",f->fname.c_str());
+            fprintf(stderr,"ERROR: Could not open file '%s' for writing.\n",files[fid].fname.c_str());
             return false;
         }
-        if(!fwrite(f->data,data.length(),1,fl)) {
-            fprintf(stderr,"ERROR: Failed to write to '%s'.\n",f->fname.c_str());
+        if(!fwrite(files[fid].data,data.length(),1,fl)) {
+            fprintf(stderr,"ERROR: Failed to write to '%s'.\n",files[fid].fname.c_str());
             return false;
         }
         fclose(fl);
@@ -810,9 +854,9 @@ int main(int argc, char* argv[])
                 st.vars[argv[3]].val.t = oldt; // coerce to definitional type
 
                 // reevaluate script and save
-                st.vars[argv[3]].fl->s->Execute(st.vars[argv[3]].fl, &st, true);
+                st.files[st.vars[argv[3]].fl].s->Execute(st.vars[argv[3]].fl, &st, true);
                 st.SaveFile(st.vars[argv[3]].fl);
-                printf("== Debug render: ==\n%s", st.vars[argv[3]].fl->s->Render(st.vars[argv[3]].fl, &st).c_str());
+                printf("== Debug render: ==\n%s", st.files[st.vars[argv[3]].fl].s->Render(st.vars[argv[3]].fl, &st).c_str());
                 return 0;
             } else {
                 fprintf(stderr,"Variable '%s' not found\n", argv[3]);

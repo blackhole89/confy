@@ -87,6 +87,7 @@ void interact(ConfyState &st)
         tb_clear();
 
         int i, ri = scroll; // running index to render
+        std::string statusline; // status line to emit at bottom
         for(i=0;i<h-4;++i) {
             while(ri < st.varNames.size() && st.vars[st.varNames[ri]].hidden) ++ri;
             if(ri==st.varNames.size()) break;
@@ -94,7 +95,20 @@ void interact(ConfyState &st)
             ConfyVar &v = st.vars[st.varNames[ri]];
 
             bool selected = false;
-            if(sel == ri) selected=true;
+            if(sel == ri) {
+                selected=true;
+
+                statusline = st.files[v.fl].fname;
+                statusline+=": ";
+                switch(v.val.t) {
+                case T_BOOL: statusline+="bool"; break;
+                case T_INT: statusline+="int"; break;
+                case T_FLOAT: statusline+="float"; break;
+                case T_STRING: statusline+="string"; break;
+                }
+                statusline+=" $";
+                statusline+=st.varNames[ri];
+            }
 
             int bg,bghi,fg,fghi;
             bg=TB_DEFAULT; bghi=TB_DEFAULT;
@@ -128,6 +142,7 @@ void interact(ConfyState &st)
 
             ++ri;
         }
+        tb_printf(0, i+2, TB_DIM, 0, "%s", statusline.c_str());
         tb_printf(0, i+3, TB_DIM|TB_REVERSE, 0, "Ctrl+C");
         tb_printf(7, i+3, TB_DIM|TB_DEFAULT, 0, "SaveQuit");
         tb_printf(17, i+3, TB_DIM|TB_REVERSE, 0, "Ctrl+D");
@@ -158,7 +173,7 @@ void interact(ConfyState &st)
             case TB_KEY_ENTER:
                 if(st.vars[st.varNames[sel]].val.t == T_BOOL) {
                     st.vars[st.varNames[sel]].val.b = !st.vars[st.varNames[sel]].val.b;
-                    st.vars[st.varNames[sel]].fl->s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
                 } else if(!editing) {
                     editing=true;
                     stb_textedit_initialize_state(&test, 1);
@@ -170,7 +185,7 @@ void interact(ConfyState &st)
                     st.vars[st.varNames[sel]].val.i = atoi(st.vars[st.varNames[sel]].val.s.c_str());
                     st.vars[st.varNames[sel]].val.b = (bool)st.vars[st.varNames[sel]].val.i;
                     st.vars[st.varNames[sel]].val.s = st.vars[st.varNames[sel]].val.Render();
-                    st.vars[st.varNames[sel]].fl->s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
                 }
                 break;
             case TB_KEY_ESC:
@@ -178,7 +193,7 @@ void interact(ConfyState &st)
                 else goto abort_interact;
                 break;
             case TB_KEY_CTRL_C: 
-                for(auto &f : st.files) st.SaveFile(&f);
+                for(int i=0;i<st.files.size();++i) st.SaveFile(i);
                 goto abort_interact;
             case TB_KEY_CTRL_D: goto abort_interact;
             default:

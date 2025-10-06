@@ -3,15 +3,15 @@ struct ConfyFile;
 struct ConfyState;
 
 struct SyntaxNode {
-    virtual std::string Render(ConfyFile *f, ConfyState *st) =0;
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable) =0;
+    virtual std::string Render(int fid, ConfyState *st) =0;
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable) =0;
 };
 
 struct Seq : public SyntaxNode {
     std::vector<SyntaxNode*> children;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 
@@ -24,8 +24,8 @@ struct SourceBlock : public SyntaxNode {
     } bType;
     std::string contents;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct IfThen : public SyntaxNode {
@@ -33,8 +33,8 @@ struct IfThen : public SyntaxNode {
 
     SyntaxNode *cond, *sub;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);  
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);  
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct IfThenElse : public SyntaxNode {
@@ -42,8 +42,8 @@ struct IfThenElse : public SyntaxNode {
 
     SyntaxNode *cond, *sub1, *sub2;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct Template : public SyntaxNode {
@@ -52,47 +52,55 @@ struct Template : public SyntaxNode {
     SyntaxNode *temp;
     std::string out;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
+};
+
+struct Include : public SyntaxNode {
+    std::string source;
+    std::string fname;
+
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct Expr {
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st) = 0;
+    virtual ConfyVal Eval(int fid, ConfyState *st) = 0;
 };
 struct ExprVar : public Expr {
     std::string name;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+    virtual ConfyVal Eval(int fid, ConfyState *st);
 };
 struct ExprLiteral : public Expr {
     ConfyVal v;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+    virtual ConfyVal Eval(int fid, ConfyState *st);
 };
 struct ExprOp : public Expr {
     std::function<ConfyVal (ConfyVal,ConfyVal,int)> op;
     std::vector<Expr*> subexprs;
     std::vector<int> subtypes;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+    virtual ConfyVal Eval(int fid, ConfyState *st);
 };
 struct ExprNot : public Expr {
     Expr *sub;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);   
+    virtual ConfyVal Eval(int fid, ConfyState *st);   
 };
 struct ExprNeg : public Expr {
     Expr *sub;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);   
+    virtual ConfyVal Eval(int fid, ConfyState *st);   
 };
 
 struct ExprEq : public Expr {
     Expr *left, *right;
-    virtual ConfyVal Eval(ConfyFile *f, ConfyState *st);
+    virtual ConfyVal Eval(int fid, ConfyState *st);
 };
 
 struct ExprNode : public SyntaxNode {
     Expr *root;
     std::string source;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct VarDef : public SyntaxNode {
@@ -103,8 +111,8 @@ struct VarDef : public SyntaxNode {
 
     ConfyVar v;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
 struct VarAssign : public SyntaxNode {
@@ -113,7 +121,7 @@ struct VarAssign : public SyntaxNode {
     std::string varname;
     SyntaxNode *expr;
 
-    virtual std::string Render(ConfyFile *f, ConfyState *st);
-    virtual ConfyVal Execute(ConfyFile *f, ConfyState *st, bool enable);
+    virtual std::string Render(int fid, ConfyState *st);
+    virtual ConfyVal Execute(int fid, ConfyState *st, bool enable);
 };
 
