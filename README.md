@@ -12,6 +12,9 @@ As long as the format supports some form of block or line comments, the code tha
 
 ### Simple example
 
+<p align="center"><a href="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a" target="_blank"><img src="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a.svg?a" /></a>
+</p>
+
 ```latex
 \section{LaTeX example}
 
@@ -54,8 +57,6 @@ The integer is 1337.
 
 This text will be updated to reflect the chosen value of $i1.
 ```
-
-<a href="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a" target="_blank"><img src="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a.svg?a" /></a>
 
 ### Syntax overview
 
