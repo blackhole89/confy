@@ -230,8 +230,12 @@ std::string Include::Render(int fid, ConfyState *st) {
 
 ConfyVal Include::Execute(int fid, ConfyState *st, bool enable) {
     if(enable) {
-        // load relative to this file
-        if(st->LoadAndParseFile(st->files[fid].fpath + "/" + fname))
+        // load relative to this file ("absolute" wrt cwd)
+        std::string abspath = st->files[fid].fpath;
+        if(abspath.length()) abspath+="/";
+        abspath+=fname;
+
+        if(st->LoadAndParseFile(abspath))
             return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
     }
     return ConfyVal { T_BOOL, false, 0, 0.0, "false" };
