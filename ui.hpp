@@ -149,6 +149,9 @@ void interact(ConfyState &st)
         tb_printf(7, i+3, TB_DIM|TB_DEFAULT, 0, "SaveQuit");
         tb_printf(17, i+3, TB_DIM|TB_REVERSE, 0, "Ctrl+D");
         tb_printf(24, i+3, TB_DIM|TB_DEFAULT, 0, "Abort");
+        tb_printf(31, i+3, TB_DIM|TB_REVERSE, 0, "Ctrl+S");
+        tb_printf(38, i+3, TB_DIM|TB_DEFAULT, 0, "Save");
+
 
 
         tb_present();
@@ -208,6 +211,13 @@ void interact(ConfyState &st)
             case TB_KEY_ESC:
                 if(editing) editing=false;
                 else goto abort_interact;
+                break;
+            case TB_KEY_CTRL_S:
+                if(st.files.size())
+                    st.files[0].s->Execute(0, &st, true);
+                for(int i=0;i<st.files.size();++i) {
+                    st.SaveFile(i);
+                }
                 break;
             case TB_KEY_CTRL_C: 
                 // only execute root file, active includes will cascade
