@@ -10,6 +10,13 @@ As long as the format supports some form of block or line comments, the code tha
 
 **Warning:** confy is currently a work in progress. No part of it is guaranteed to be stable, forward- or backward-compatible. Use at your own risk.
 
+When dealing with "programmatic" text files such as config files, scripts or source code, one would often like to be able to switch between complex alternatives quickly, without having to recall the rules of and write correct incantations in the appropriate format every time.
+There are many ad-hoc approaches to this: 
+source code is often instrumented by configuration generators as part of build systems which can disable or enable features, shell scripts can take additional parameters from the environment, and a common last resort is to leave a menu of alternatives to blocks of configuration or code as comments next to them.
+
+The purpose of *confy* is to provide a convenient automated solution for all situations of this shape. To this end, confy implements a generic language that can be embedded into the comments of any file format that has them, and which can both store configuration state and describe how this configuration state affects the "live" (non-commented) parts of the file.
+In the most basic case, the instructions given to confy may just say to comment or uncomment a block of code depending on the setting of a Boolean configuration variable; more advanced applications may involve templating stretches of code with the contents of configuration variables, performing complex tests and even using the results of stateful computations.
+
 ### Simple example
 
 <p align="center"><a href="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a" target="_blank"><img src="https://asciinema.org/a/mnMnqEqKpg3CEmekumq78zP9a.svg?a" /></a>
@@ -60,7 +67,7 @@ This text will be updated to reflect the chosen value of $i1.
 
 ### Syntax overview
 
-For confy to operate on a file, it must contain a `confy-setup` block.
+For confy to operate on a file, it must contain a `confy-setup` block, and the first instance of the string `confy-setup` in the file must be followed by such a block.
 This takes the form
 ```
 confy-setup { key: "value", ... }
