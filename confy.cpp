@@ -52,6 +52,20 @@ struct ConfyVal {
         default: return "\"<CORRUPTED>\"";
         }
     }
+
+    void CoerceFrom(ConfyVal &other) {
+        b = other.b;
+        f = other.f;
+        i = other.i;
+        s = other.s;
+    }
+
+    void CoerceFrom(ConfyVal &&other) {
+        b = other.b;
+        f = other.f;
+        i = other.i;
+        s = other.s;
+    }
 };
 
 struct ConfyVar {
@@ -488,7 +502,7 @@ struct ConfyFile {
 
         pos+=eat_whitespace(data,mask,pos);
 
-        STR_OR_FAIL("=");
+        STR_OR_THROW("=", "Expected '=' in variable definition");
         pos+=eat_whitespace(data,mask,pos);
         
         ret->pre = std::string(data+pos0, pos-pos0);
@@ -498,10 +512,10 @@ struct ConfyFile {
 
         pos0=pos;
 
-        ret->v.val.b = va->b; ret->v.val.f = va->f; ret->v.val.i = va->i; ret->v.val.s = va->s;
+        ret->v.val.CoerceFrom(*va);
         delete va;
 
-        STR_OR_FAIL(";");
+        STR_OR_THROW(";", "Expected ';' after variable definition");
 
         ret->post = std::string(data+pos0, pos-pos0);
 
@@ -526,7 +540,7 @@ struct ConfyFile {
 
             pos+=eat_whitespace(data,mask,pos);
 
-            STR_OR_FAIL("{");
+            STR_OR_THROW("{", "'if' condition must be followed by '{'");
 
             pos1=pos;
 
@@ -534,7 +548,7 @@ struct ConfyFile {
 
             pos2=pos;
 
-            STR_OR_FAIL("}");
+            STR_OR_THROW("}", "'if' block must be followed by '}'");
 
             pos+=eat_whitespace(data,mask,pos);
 
@@ -727,10 +741,21 @@ struct ConfyState {
     std::map<std::string, ConfyVar> vars;
     std::vector<std::string> varNames; 
 
+    // -1 if not found
+    int FindFile(std::string fname) {
+        for(int i=0; i<files.size(); ++i) {
+            if(files[i].fname == fname) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     bool LoadAndParseFile(std::string fname) {
-        for(auto &f : files) {
-            // do not reload files already loaded
-            if(f.fname == fname) return true;
+        int i;
+        if((i=FindFile(fname))>=0) {
+            files[i].s->Execute(i,this,true);
+            return true;
         }
 
         auto size = std::filesystem::file_size(fname);

@@ -187,7 +187,8 @@ void interact(ConfyState &st)
             case TB_KEY_ENTER:
                 if(st.vars[st.varNames[sel]].val.t == T_BOOL) {
                     st.vars[st.varNames[sel]].val.b = !st.vars[st.varNames[sel]].val.b;
-                    st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    // st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    st.files[0].s->Execute(0, &st, true); // just execute root
                 } else if(!editing) {
                     editing=true;
                     stb_textedit_initialize_state(&test, 1);
@@ -200,7 +201,8 @@ void interact(ConfyState &st)
                     st.vars[st.varNames[sel]].val.b = (bool)st.vars[st.varNames[sel]].val.i;
                     if(st.vars[st.varNames[sel]].val.t != T_STRING)
                         st.vars[st.varNames[sel]].val.s = st.vars[st.varNames[sel]].val.Render();
-                    st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    //st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
+                    st.files[0].s->Execute(0, &st, true); // just execute root
                 }
                 break;
             case TB_KEY_ESC:
@@ -208,8 +210,11 @@ void interact(ConfyState &st)
                 else goto abort_interact;
                 break;
             case TB_KEY_CTRL_C: 
+                // only execute root file, active includes will cascade
+                if(st.files.size())
+                    st.files[0].s->Execute(0, &st, true);
                 for(int i=0;i<st.files.size();++i) {
-                    st.files[i].s->Execute(i, &st, true);
+//                    st.files[i].s->Execute(i, &st, true);
                     st.SaveFile(i);
                 }
                 goto abort_interact;

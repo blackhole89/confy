@@ -88,18 +88,25 @@ This will evaluate `<expression>` and assign the result to the variable, if it h
 Includes a file identified by its path relative to the current file. Variables defined in the included file become readable and writable in the current file and namespace.
 
 * `if ( <expression> ) { <closed-form> } `  
-`if ( <expression> ) { <closed-form> } else [<if-statement> | { <closed-form> }`  
-Evaluates the expression and activates the `<closed-form>` if and only if it evaluates to `true` (resp. a nonzero number, or a nonempty string). This strips comments from all inert blocks and lines in it. Inactivates it if the expression evaluates to `false` (turning all non-commented parts of it into line or block inert segments). If an `else` branch if present, the opposite operation is performed on it.
+`if ( <expression> ) { <closed-form> } else [<if-statement> | { <closed-form> }`]  
+Evaluates the expression and activates the `<closed-form>` if and only if it evaluates to `true` (resp. a nonzero number, or a nonempty string). This strips comments from all inert blocks and lines in it.  
+Inactivates the `<closed-form>` if the expression evaluates to `false`, turning all non-commented parts of it into line or block inert segments.  
+If an `else` branch if present, the opposite operation is performed on it.
 
 * `template { <pattern> } into { }`  
-Pattern should consist of inert blocks. Any instance of `$varname` in it will be replaced with a string representing the contents of that variable. Avoid substitution by escaping with `\\`. Any `~` immediately after a variable name will be deleted to allow for gapless substitution, so `\$3+$length~cm` may evaluate to `$3+15cm`.
+Pattern should consist of inert blocks. Any instance of `$varname` in it will be replaced with a string representing the contents of that variable. Avoid substitution by escaping with `\\`. Any `~` immediately after a variable name will be deleted to allow for gapless substitution, so `\$3+$length~cm` may evaluate to `$3+15cm`.  
+Due to current technical limitations, the syntax of this construct should not be spread out across meta-blocks of different type (e.g. with the `} into {` in a block comment and the final `}` in a line comment).
 
+## Examples
+
+The `examples/` subfolder contains several instructive examples that demonstrate core features.
 
 ## Planned features
 
 * [ ] Shell invocations: on configuration change, to compute values...
 * [ ] Better error reporting
 * [ ] Variable namespaces
+* [ ] Better treatment of conditional `include`. Hide variables from recursive includes.
 
 ## Building
 Confy only requires a C++ compiler supporting c++17, and an ncurses-capable terminal if you want to use interactive mode. To build:

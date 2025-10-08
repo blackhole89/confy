@@ -3,8 +3,8 @@
 %! string $lang "Language (en/de/es)" = "en";
 %! hidden string $prevlang = "en";
 
-%! include("Makefile");
-%! include("cppstyle.cpp");
+%! include("multifile/Makefile");
+%! include("multifile/cppstyle.cpp");
 
 %! if($lang != $prevlang) {
 %!   $prevlang = $lang;

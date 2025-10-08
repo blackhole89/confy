@@ -1,0 +1,12 @@
+% confy-setup { line: "%-", meta_line: "%!" }
+
+%! int $control "Control (0,1,2)" = 0;
+
+%! if($control==0) {
+%!   $sub2=1;
+%!   include("condinclude2.tex");
+%!   $sub2=0;
+%! } else if($control==1) {
+%! } else {
+%!   include("condinclude2.tex");
+%! }

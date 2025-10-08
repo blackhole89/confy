@@ -109,8 +109,14 @@ ConfyVal IfThenElse::Execute(int fid, ConfyState *st, bool enable) {
     if(!enable) { sub1->Execute(fid,st,false); sub2->Execute(fid,st,false); }
     else {
         v = cond->Execute(fid,st,true);
-        sub1->Execute(fid,st,v.b);
-        sub2->Execute(fid,st,!v.b);
+        // always shadow-execute non-taken branch first, for variable shadowing
+        if(v.b) {
+            sub2->Execute(fid,st,false);
+            sub1->Execute(fid,st,true);
+        } else {
+            sub1->Execute(fid,st,false);
+            sub2->Execute(fid,st,true);
+        }
     }
     return v; 
 }
@@ -215,7 +221,7 @@ std::string VarAssign::Render(int fid, ConfyState *st) {
 ConfyVal VarAssign::Execute(int fid, ConfyState *st, bool enable) {
     if(enable) {
         if(st->vars.count(varname)) {
-            st->vars[varname].val = expr->Execute(fid,st,enable);
+            st->vars[varname].val.CoerceFrom(expr->Execute(fid,st,enable));
             return st->vars[varname].val;
         } else {
             // TODO: throw error?
@@ -229,20 +235,28 @@ std::string Include::Render(int fid, ConfyState *st) {
 }
 
 ConfyVal Include::Execute(int fid, ConfyState *st, bool enable) {
-    if(enable) {
-        // load relative to this file ("absolute" wrt cwd)
-        std::string abspath;
-        std::filesystem::path fp(fname);
-        if(fp.is_absolute()) 
-            abspath = fname;
-        else {
-            abspath = st->files[fid].fpath;
-            if(abspath.length()) abspath+="/";
-            abspath+=fname;
-        }
+    // load relative to this file ("absolute" wrt cwd)
+    std::string abspath;
+    std::filesystem::path fp(fname);
+    if(fp.is_absolute()) 
+        abspath = fname;
+    else {
+        abspath = st->files[fid].fpath;
+        if(abspath.length()) abspath+="/";
+        abspath+=fname;
+    }
 
+    if(enable) {
+        // this will also execute the file included
         if(st->LoadAndParseFile(abspath))
             return ConfyVal { T_BOOL, true, 1, 1.0, "true" };
+    } else {
+        // hide all variables from this file if previously loaded
+        int i=st->FindFile(abspath);
+        for(auto &[k,v] : st->vars) {
+            if(v.fl == i)
+                v.hidden = true;
+        }
     }
     return ConfyVal { T_BOOL, false, 0, 0.0, "false" };
 }
