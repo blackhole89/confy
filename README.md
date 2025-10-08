@@ -107,6 +107,7 @@ The `examples/` subfolder contains several instructive examples that demonstrate
 * [ ] Better error reporting
 * [ ] Variable namespaces
 * [ ] Better treatment of conditional `include`. Hide variables from recursive includes.
+* [ ] Support instrumentation of files with no usable comment format through shadow templates, like `.<filename>.confy-in`
 
 ## Building
 Confy only requires a C++ compiler supporting c++17, and an ncurses-capable terminal if you want to use interactive mode. To build:
