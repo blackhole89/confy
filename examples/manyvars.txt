@@ -1,0 +1,32 @@
+// confy-setup { line: "//-", meta_line: "//!" }
+
+//! hidden int $var0 = 1;
+//! hidden int $var0b = 0;
+//! int $var1 = 0;
+//! int $var2 = 1;
+//! int $var3 = 0;
+//! int $var4 = 2;
+//! int $var5 = 0;
+//! hidden int $var5b = 0;
+//! hidden int $var5c = 0;
+//! int $var6 = 3;
+//! int $var7 = 0;
+//! int $var8 = 4;
+//! int $var9 = 0;
+//! int $var10 = 5;
+//! int $var11 = 0;
+//! int $var12 = 6;
+//! int $var13 = 0;
+//! int $var14 = 7;
+//! int $var15 = 0;
+//! int $var16 = 818;
+//! hidden int $var16b = 0;
+//! int $var17 = 8;
+//! int $var18 = 8;
+//! int $var19 = 8;
+//! int $var20 = 8;
+//! int $var21 = 8;
+//! int $var22 = 8;
+//! int $var23 = 8;
+//! hidden int $var24 = 0;
+//! hidden int $var25 = 0;

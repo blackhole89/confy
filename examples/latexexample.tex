@@ -1,0 +1,41 @@
+\section{LaTeX example}
+
+The confy setup block tells confy how meta-instructions will be embedded in 
+this file. Confy supports line and block comments, and you should specify at
+least one of the two for each of inert text and metacode. 
+
+LaTeX only supports line comments. In general, the sensible approach is to
+take the current file's language's comment syntax, and suffix it with some
+unique character sequence to avoid accidental clashes with any existing
+comments that should not have any meaning to confy.
+
+% confy-setup { line: "%-", meta_line: "%!" }
+
+We can now define some variables. The quoted text is optional, and allows
+ you to display more memorable descriptions in interactive mode.
+
+%! bool $b1 "First boolean" = false;
+%! bool $b2 "Second boolean" = true;
+
+Are both booleans true?
+%! if($b1 && $b2) {
+%-Yes!
+%! } else {
+No!
+%! }
+
+If you now were to run confy and set one of the two booleans to false, 
+confy would change this file to comment out the line saying `Yes!', and
+uncomment the line saying `No!'.
+
+For more advanced usage, you can also use \textit{templating}:
+
+%! int $i1 "First integer" = 42;
+%! template {
+%-The integer is $i1.
+%! } into {
+The integer is 42.
+%! }
+
+This text will be updated to reflect the chosen value of $i1.
+

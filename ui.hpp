@@ -87,6 +87,7 @@ void interact(ConfyState &st)
         tb_clear();
 
         int i, ri = scroll; // running index to render
+        int sel_y=0; // computed y-position of selection in list
         std::string statusline; // status line to emit at bottom
         for(i=0;i<h-4;++i) {
             while(ri < st.varNames.size() && st.vars[st.varNames[ri]].hidden) ++ri;
@@ -97,6 +98,7 @@ void interact(ConfyState &st)
             bool selected = false;
             if(sel == ri) {
                 selected=true;
+                sel_y=i;
 
                 statusline = st.files[v.fl].fname;
                 statusline+=": ";
@@ -108,6 +110,7 @@ void interact(ConfyState &st)
                 }
                 statusline+=" $";
                 statusline+=st.varNames[ri];
+                char buf[512]; sprintf(buf," %d/%d",sel_y,h); statusline+=buf;
             }
 
             int bg,bghi,fg,fghi;
@@ -161,6 +164,12 @@ void interact(ConfyState &st)
                 if(sel > 0) --sel;
                 while(sel > 0 && st.vars[st.varNames[sel]].hidden) --sel;
                 if(st.vars[st.varNames[sel]].hidden) sel=sel0; // bumped into end on hidden, revert
+                // check if we also need to scroll up
+                if(sel_y<2) {
+                    if(scroll>0) --scroll;
+                    while(scroll > 0 && st.vars[st.varNames[scroll]].hidden) --scroll;
+                    // allow scrolling up to hidden
+                }
                 editing=false;
                 break;
             case TB_KEY_ARROW_DOWN:
@@ -168,6 +177,12 @@ void interact(ConfyState &st)
                 if(sel < (st.varNames.size()-1)) ++sel;
                 while(sel < (st.varNames.size()-1) && st.vars[st.varNames[sel]].hidden) ++sel;
                 if(st.vars[st.varNames[sel]].hidden) sel=sel0; // bumped into end on hidden, revert
+                // check if we also need to scroll down
+                if(sel_y>(h-8)) {
+                    if(scroll<st.varNames.size()-3) ++scroll;
+                    while(scroll<st.varNames.size()-3 && st.vars[st.varNames[scroll]].hidden) ++scroll;
+                }
+
                 editing=false;
                 break;
             case TB_KEY_ENTER:
