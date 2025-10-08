@@ -1,0 +1,21 @@
+% confy-setup { line: "%-", meta_line: "%!" }
+
+%! string $lang "Language (en/de/es)" = "en";
+%! hidden string $prevlang = "en";
+
+%! include("Makefile");
+%! include("cppstyle.cpp");
+
+%! if($lang != $prevlang) {
+%!   $prevlang = $lang;
+%!   if($lang == "en") {
+%!     $greeting = "Hello world!";
+%!     $fname = "hello";
+%!   } else if($lang == "de") {
+%!     $greeting = "Hallo Welt!";
+%!     $fname = "hallo";
+%!   } else if($lang == "es") {
+%!     $greeting = "¡Hola, mundo!";
+%!     $fname = "hola";
+%!   }
+%! }

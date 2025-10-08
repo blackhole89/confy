@@ -110,7 +110,6 @@ void interact(ConfyState &st)
                 }
                 statusline+=" $";
                 statusline+=st.varNames[ri];
-                char buf[512]; sprintf(buf," %d/%d",sel_y,h); statusline+=buf;
             }
 
             int bg,bghi,fg,fghi;
@@ -199,7 +198,8 @@ void interact(ConfyState &st)
                     st.vars[st.varNames[sel]].val.f = atof(st.vars[st.varNames[sel]].val.s.c_str());
                     st.vars[st.varNames[sel]].val.i = atoi(st.vars[st.varNames[sel]].val.s.c_str());
                     st.vars[st.varNames[sel]].val.b = (bool)st.vars[st.varNames[sel]].val.i;
-                    st.vars[st.varNames[sel]].val.s = st.vars[st.varNames[sel]].val.Render();
+                    if(st.vars[st.varNames[sel]].val.t != T_STRING)
+                        st.vars[st.varNames[sel]].val.s = st.vars[st.varNames[sel]].val.Render();
                     st.files[st.vars[st.varNames[sel]].fl].s->Execute(st.vars[st.varNames[sel]].fl, &st, true);
                 }
                 break;
@@ -208,7 +208,10 @@ void interact(ConfyState &st)
                 else goto abort_interact;
                 break;
             case TB_KEY_CTRL_C: 
-                for(int i=0;i<st.files.size();++i) st.SaveFile(i);
+                for(int i=0;i<st.files.size();++i) {
+                    st.files[i].s->Execute(i, &st, true);
+                    st.SaveFile(i);
+                }
                 goto abort_interact;
             case TB_KEY_CTRL_D: goto abort_interact;
             default:

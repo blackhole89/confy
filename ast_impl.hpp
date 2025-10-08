@@ -127,7 +127,7 @@ std::string Template::Render(int fid, ConfyState *st) {
 
 ConfyVal Template::Execute(int fid, ConfyState *st, bool enable) {
     ConfyVal v { T_BOOL, false, 0, 0.0, "false" };
-    if(!enable) {  }
+    if(!enable) { out=""; }
     else {
         temp->Execute(fid,st,true);
         out = temp->Render(fid,st);

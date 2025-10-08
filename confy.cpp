@@ -545,6 +545,7 @@ struct ConfyFile {
                 s->cond = cond;
                 s->sub1 = body;
                 pos+=eat_whitespace(data,mask,pos);
+                s->inter = std::string(data+pos2, pos-pos2);
                 SyntaxNode *alt;
                 if(!(alt=parseIf(pos))) {
                     STR_OR_THROW("{", "Expected '{' or 'if' after 'else'");
