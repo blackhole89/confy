@@ -97,7 +97,19 @@ If an `else` branch if present, the opposite operation is performed on it.
 Pattern should consist of inert blocks. Any instance of `$varname` in it will be replaced with a string representing the contents of that variable. Avoid substitution by escaping with `\\`. Any `~` immediately after a variable name will be deleted to allow for gapless substitution, so `\$3+$length~cm` may evaluate to `$3+15cm`.  
 Due to current technical limitations, the syntax of this construct should not be spread out across meta-blocks of different type (e.g. with the `} into {` in a block comment and the final `}` in a line comment).
 
-## Examples
+### CLI usage
+
+Confy can also get and set variables directly from the CLI, without starting the interactive UI. Currently the following usage patterns are supported:
+
+* `confy <filename>` starts the interactive TUI.
+
+* `confy <filename> get <varname>` prints a representation of the value of $`varname` (without the `$` sigil required by the in-file syntax!) followed by a newline.
+
+* `confy <filename> set <varname> <value>` updates the value of $`varname` to `<value>`, which is a Boolean value (true/false), integer, double-precision float or quoted string.
+
+Exit codes: 0 on success, -3 if the file failed to parse, -2 if `value` could not be parsed as a boolean, integer, float or string value, or -1 if the variable `<varname>` was not defined by the file being parsed.
+
+### Examples
 
 The `examples/` subfolder contains several instructive examples that demonstrate core features.
 
